@@ -12,10 +12,10 @@ function Router() {
   return (
     <Switch>
       <Route path="/" component={Home} />
-      <Route path="/game" component={GameHome} />
       <Route path="/game/:roomId">
         {(params: { roomId: string }) => <GamePlay roomId={params.roomId} />}
       </Route>
+      <Route path="/game" component={GameHome} />
       <Route path="/404" component={NotFound} />
       <Route component={NotFound} />
     </Switch>
