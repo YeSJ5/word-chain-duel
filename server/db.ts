@@ -1,6 +1,6 @@
 import { eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
-import { InsertUser, users } from "../drizzle/schema";
+import { InsertUser, users, gameRooms, gameTurns } from "../drizzle/schema";
 import { ENV } from './_core/env';
 
 let _db: ReturnType<typeof drizzle> | null = null;
@@ -89,4 +89,127 @@ export async function getUserByOpenId(openId: string) {
   return result.length > 0 ? result[0] : undefined;
 }
 
-// TODO: add feature queries here as your schema grows.
+export async function createGameRoom(createdBy: number): Promise<string> {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  const roomId = Math.random().toString(36).substring(2, 10).toUpperCase();
+
+  await db.insert(gameRooms).values({
+    roomId,
+    createdBy,
+    player1Id: createdBy,
+    status: "waiting",
+    usedWords: [],
+  });
+
+  return roomId;
+}
+
+export async function getGameRoom(roomId: string) {
+  const db = await getDb();
+  if (!db) return undefined;
+
+  const result = await db
+    .select()
+    .from(gameRooms)
+    .where(eq(gameRooms.roomId, roomId))
+    .limit(1);
+
+  return result.length > 0 ? result[0] : undefined;
+}
+
+export async function joinGameRoom(roomId: string, playerId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  const room = await getGameRoom(roomId);
+  if (!room) throw new Error("Room not found");
+  if (room.player2Id) throw new Error("Room is full");
+
+  await db
+    .update(gameRooms)
+    .set({ player2Id: playerId, status: "active", currentPlayerId: room.player1Id })
+    .where(eq(gameRooms.roomId, roomId));
+}
+
+export async function submitWord(
+  roomId: string,
+  playerId: number,
+  word: string,
+  isValid: boolean,
+  validationReason?: string
+) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  const room = await getGameRoom(roomId);
+  if (!room) throw new Error("Room not found");
+
+  await db.insert(gameTurns).values({
+    roomId,
+    playerId,
+    word,
+    isValid: isValid ? 1 : 0,
+    validationReason,
+  });
+
+  if (isValid) {
+    const isPlayer1 = playerId === room.player1Id;
+    const newScore = isPlayer1 ? room.player1Score + 1 : room.player2Score + 1;
+    const newStreak = isPlayer1 ? room.player1Streak + 1 : room.player2Streak + 1;
+    const nextPlayerId = isPlayer1 ? room.player2Id : room.player1Id;
+    const usedWords = Array.isArray(room.usedWords) ? room.usedWords : [];
+
+    await db
+      .update(gameRooms)
+      .set({
+        currentWord: word,
+        currentPlayerId: nextPlayerId,
+        ...(isPlayer1
+          ? { player1Score: newScore, player1Streak: newStreak }
+          : { player2Score: newScore, player2Streak: newStreak }),
+        usedWords: [...usedWords, word.toLowerCase()],
+      })
+      .where(eq(gameRooms.roomId, roomId));
+  } else {
+    const winner = playerId === room.player1Id ? room.player2Id : room.player1Id;
+    await db
+      .update(gameRooms)
+      .set({
+        status: "completed",
+        winner,
+        endReason: "invalid_word",
+      })
+      .where(eq(gameRooms.roomId, roomId));
+  }
+}
+
+export async function endGameByTimeout(roomId: string, playerId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  const room = await getGameRoom(roomId);
+  if (!room) throw new Error("Room not found");
+
+  const winner = playerId === room.player1Id ? room.player2Id : room.player1Id;
+  await db
+    .update(gameRooms)
+    .set({
+      status: "completed",
+      winner,
+      endReason: "timeout",
+    })
+    .where(eq(gameRooms.roomId, roomId));
+}
+
+export async function getGameTurns(roomId: string) {
+  const db = await getDb();
+  if (!db) return [];
+
+  return await db
+    .select()
+    .from(gameTurns)
+    .where(eq(gameTurns.roomId, roomId))
+    .orderBy(gameTurns.submittedAt);
+}
