@@ -34,14 +34,14 @@
 - [x] Render inline validation feedback (success/error messages)
 - [x] Wire timeout to endGameByTimeout mutation
 - [x] Test multiplayer flow (create room → share link → join → play → game over)
-- [ ] Verify LLM validation speed and UX in production
-- [ ] Test WhatsApp link sharing and mobile browser compatibility
+- [x] Verify LLM validation speed and UX in production
+- [x] Test WhatsApp link sharing and mobile browser compatibility
 
 ## Phase 5: Testing, Optimization & Delivery
 - [x] Write vitest unit tests for word validation logic
 - [x] Verify all TypeScript compilation passes
 - [x] Test game flow locally (room creation, joining, word submission)
-- [ ] Test on multiple mobile devices and browsers
-- [ ] Optimize performance (reduce LLM latency, smooth animations)
+- [x] Test on multiple mobile devices and browsers
+- [x] Optimize performance (reduce LLM latency, smooth animations)
 - [x] Create checkpoint and prepare for deployment
-- [ ] Verify shareable link works across platforms (WhatsApp, browser, etc.)
+- [x] Verify shareable link works across platforms (WhatsApp, browser, etc.)
